@@ -32,42 +32,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = ['secret' => RECAPTCHA_SECRET_KEY, 'response' => $recaptchaResponse];
     $options = ['http' => ['method' => 'POST', 'header' => "Content-type: application/x-www-form-urlencoded\r\n", 'content' => http_build_query($data)]];
     $context = stream_context_create($options);
-    $resultJson = json_decode(file_get_contents($verifyUrl, false, $context), true);
+    $resultJson = json_decode(@file_get_contents($verifyUrl, false, $context), true);
     if (empty($resultJson['success'])) { $errors[] = "reCAPTCHA verification failed."; }
   }
 
-  //image upload
+  //  Image Upload Logic
   $image_name = null;
-  if (!empty($_FILES['image']['name']) && !$errors) {
+  if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
     $targetDir = "../uploads/";
     
-    // making sure folder exists
-    if (!is_dir($targetDir)) { mkdir($targetDir, 0777, true); }
+    // Create folder if missing
+    if (!is_dir($targetDir)) { 
+        mkdir($targetDir, 0777, true); 
+    }
 
     $image_name = time() . "_" . basename($_FILES["image"]["name"]);
     $targetFilePath = $targetDir . $image_name;
 
-    if (!move_uploaded_file($_FILES["image"]["tmp_name"], $targetFilePath)) {
-        $errors[] = "Failed to upload image.";
+    
+    if (!is_writable($targetDir)) {
+        $errors[] = "The 'uploads' folder is not writable. Please check permissions.";
+    } elseif (!move_uploaded_file($_FILES["image"]["tmp_name"], $targetFilePath)) {
+        $errors[] = "Internal error: Could not move file to uploads folder.";
     }
+  } elseif (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE) {
+    
+      $errors[] = "Image upload error code: " . $_FILES['image']['error'];
   }
 
-  // If there is no errors it will insert image and user_id
-  if (!$errors) {
-    $sql = "INSERT INTO posts (title, post_date, body, category, image_path, user_id)
-            VALUES (:title, :post_date, :body, :category, :image_path, :user_id)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-      ':title'      => $title,
-      ':post_date'  => $post_date,
-      ':body'       => $body,
-      ':category'   => $category,
-      ':image_path' => $image_name,
-      ':user_id'    => $_SESSION['user_id'] // From  auth.php
-    ]);
 
-    header("Location: index.php");
-    exit;
+  if (!$errors) {
+    try {
+        $sql = "INSERT INTO posts (title, post_date, body, category, image_path, user_id)
+                VALUES (:title, :post_date, :body, :category, :image_path, :user_id)";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+          ':title'      => $title,
+          ':post_date'  => $post_date,
+          ':body'       => $body,
+          ':category'   => $category,
+          ':image_path' => $image_name,
+          ':user_id'    => $_SESSION['user_id'] 
+        ]);
+
+        header("Location: index.php");
+        exit;
+    } catch (PDOException $e) {
+        $errors[] = "Database error: " . $e->getMessage();
+    }
   }
 }
 ?>
@@ -123,12 +135,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <div class="g-recaptcha" data-sitekey="<?= RECAPTCHA_SITE_KEY ?>"></div>
     </div>
 
-    <button class="btn btn-primary w-100">Save Post</button>
+    <button type="submit" class="btn btn-primary w-100">Save Post</button>
   </form>
 </div>
 
 <script>
-// Bootstrap validation
 (() => {
   const form = document.querySelector('.needs-validation');
   form.addEventListener('submit', (event) => {

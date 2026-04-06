@@ -27,4 +27,17 @@ require_once __DIR__ . '/auth.php';
   </div>
 </nav>
 
+<div class="container">
+  <a class="navbar-brand" href="index.php">Blog CMS</a>
+  <div class="navbar-nav">
+    <?php if (isset($_SESSION['user_id'])): ?>
+      <span class="nav-link text-light">Welcome, <?= htmlspecialchars($_SESSION['user_name']) ?></span>
+      <a class="nav-link" href="logout.php">Logout</a>
+    <?php else: ?>
+      <a class="nav-link" href="login.php">Login</a>
+      <a class="nav-link" href="register.php">Register</a>
+    <?php endif; ?>
+  </div>
+</div>
+
 <div class="container py-4">
