@@ -14,7 +14,10 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Page heading + Add button -->
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 m-0">All Posts</h1>
-  <a class="btn btn-primary" href="create.php">+ Add New Post</a>
+
+  <?php if (isLoggedIn()): ?>
+    <a class="btn btn-primary" href="create.php">+ Add New Post</a>
+  <?php endif; ?>
 </div>
 
 <?php
